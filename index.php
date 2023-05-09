@@ -1,61 +1,43 @@
 <?php
-
-    // Подключение к базе данных
-    $servername = "localhost";
-    $username = "root";
-    $password = "";
-    $dbname = "twotest";
-
-    $conn = new mysqli($servername, $username, $password, $dbname);
-
-    // Проверка подключения
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-    }
-
-    // Запрос категорий из базы данных
-    $sql = "SELECT categories_id, parent_id FROM categories";
-    $result = $conn->query($sql);
-
-    // Преобразование результата запроса в массив
-    $categories = array();
-    while ($row = $result->fetch_assoc()) {
-        $categories[$row['categories_id']] = $row;
-    }
-
-    // Функция для построения дерева категорий
-    function buildTree(&$categories, $parentId = 0) {
-        $tree = array();
-
-        foreach ($categories as $categoryId => $category) {
-            if ($category['parent_id'] == $parentId) {
-                // Удаляем элемент из массива, чтобы не обрабатывать его повторно
-                unset($categories[$categoryId]);
-
-                $subcategories = buildTree($categories, $categoryId);
-
-                // Если есть подкатегории, добавляем их в текущую категорию
-                if ($subcategories) {
-                    $category['subcategories'] = $subcategories;
-                }
-
-                // Добавляем категорию в дерево
-                $tree[$categoryId] = $category;
-            }
-        }
-
-        return $tree;
-    }
-
-    // Построение дерева категорий
-    $tree = buildTree($categories);
-
-    // Вывод результата
-    echo '<pre>';
-    print_r($tree);
-    echo '</pre>';
-
-    // Закрытие соединения с базой данных
-    $conn->close();
-
-?>
+	$start = microtime(true);
+// Подключение к базе данных
+	$dsn = "mysql:host=localhost;dbname=twotest";
+	$username = "root";
+	$password = "";
+	try {
+		$pdo = new PDO($dsn, $username, $password);
+	} catch (PDOException $e) {
+		die("Ошибка подключения к базе данных: " . $e->getMessage());
+	}
+// Запрос на получение всех категорий
+	$sql = "SELECT * FROM categories";
+	$stmt = $pdo->prepare($sql);
+	$stmt->execute();
+	$categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Функция для построения дерева категорий
+	function buildCategoryTree($categories, $parent_id = 0)
+	{
+		$tree = array();
+		foreach ($categories as $category) {
+			if ($category['parent_id'] == $parent_id) {
+				$id = $category['categories_id'];
+				// Рекурсивный вызов функции для получения подкатегорий
+				$subcategories = buildCategoryTree($categories, $id);
+				// Добавление категории в дерево
+				if (empty($subcategories)) {
+					$tree[$id] = $id;
+				} else {
+					$tree[$id] = $subcategories;
+				}
+			}
+		}
+		return $tree;
+	}
+// Построение дерева категорий
+	$result = buildCategoryTree($categories);
+	echo '<pre>';
+	print_r($result);
+	echo '</pre>';
+	$end = microtime(true); // сохраняем текущее время в переменной $end
+	$time = $end - $start; // вычисляем разницу времени в секундах
+	echo "Время выполнения скрипта: $time секунд";
